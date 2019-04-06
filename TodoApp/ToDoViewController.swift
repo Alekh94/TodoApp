@@ -11,10 +11,19 @@ import UIKit
 class ToDoViewController: UITableViewController {
     
     var itemArray = ["Shoppa", "Uppgifter", "Gärningar"]
+    
+    let defaults = UserDefaults.standard
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+      
+        // Om det finns en array med key "" då items får det värdet och vidare får ItemArray det värdet --> Data sparas även om appen stängs ned! :)
+        
+        if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+            itemArray = items
+        }
+        
+        
     }
 
     // MARK - TableView Datasource Methods
@@ -71,6 +80,10 @@ class ToDoViewController: UITableViewController {
             
             //Lägga till texten från closure nedan i itemArray som sedan ser till att synliggöra det
             self.itemArray.append(textField.text!)
+            
+            //Sparar data i defaults. Set(value:any, forKey: String) --> sparas ned i en p-list
+            self.defaults.set(self.itemArray, forKey: "TodoListArray")
+            
             // Uppdaterar tabellenviewen och därmed synliggörs det man skrev in i raden ovan
             self.tableView.reloadData()
                 }
