@@ -10,16 +10,31 @@ import UIKit
 
 class ToDoViewController: UITableViewController {
     
-    var itemArray = ["Shoppa", "Uppgifter", "Gärningar"]
+    var itemArray = [Item]()
     
     let defaults = UserDefaults.standard
 
     override func viewDidLoad() {
         super.viewDidLoad()
       
+        
+        let newItem = Item()
+        newItem.title = "Städa"
+        itemArray.append(newItem)
+        
+        let newItem2 = Item()
+        newItem2.title = "Gärningar"
+        itemArray.append(newItem2)
+        
+        let newItem3 = Item()
+        newItem3.title = "Uppgifter"
+        itemArray.append(newItem3)
+        
+        
+        
         // Om det finns en array med key "" då items får det värdet och vidare får ItemArray det värdet --> Data sparas även om appen stängs ned! :)
         
-        if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
             itemArray = items
         }
         
@@ -39,8 +54,16 @@ class ToDoViewController: UITableViewController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "ItemCell", for: indexPath)
         
-        cell.textLabel?.text = itemArray[indexPath.row]
+        let item = itemArray[indexPath.row]
         
+        cell.textLabel?.text = item.title
+        
+        //ternary operator ==>
+        // value = condition ? valueIfTrue : valueIfFalse
+        //Om Item Done == true då ska checkmark läggas till annars inte
+        
+        cell.accessoryType = item.done == true ? .checkmark : .none
+      
         return cell
     }
 
@@ -50,14 +73,23 @@ class ToDoViewController: UITableViewController {
     
     // Vad ska hända när man trycker på respeketive rad?
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print(itemArray[indexPath.row])
+//        print(itemArray[indexPath.row])
         
         
         // om en rad redan har checkmark, vi läggre en if sats för att bort den annars lägger vi till en checkmark för den valda raden
-        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
-            tableView.cellForRow(at: indexPath)?.accessoryType = .none }
-        else {  tableView.cellForRow(at: indexPath)?.accessoryType = .checkmark
-        }
+        
+//        if itemArray[indexPath.row].done == false {
+//            itemArray[indexPath.row].done = true
+//        } else {
+//            itemArray[indexPath.row].done = false
+//        }
+        
+        //denna mening ersätter if satsen ovan. Koden sätter done property för den valda raden till den motsatta med hjälp av not operatorn ! 
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+        
+        
+        //denna metod gör att alla tableview methods uppdaterar varje gång man väljer en rad
+        tableView.reloadData()
         
         // Så att det inte ser ut att en rad är markerad hela tiden
         tableView.deselectRow(at: indexPath, animated: true)
@@ -79,7 +111,11 @@ class ToDoViewController: UITableViewController {
             // What will happen once the user click on the add item button on our UIAlert
             
             //Lägga till texten från closure nedan i itemArray som sedan ser till att synliggöra det
-            self.itemArray.append(textField.text!)
+           
+            let newItem = Item()
+            newItem.title = textField.text!
+            
+            self.itemArray.append(newItem)
             
             //Sparar data i defaults. Set(value:any, forKey: String) --> sparas ned i en p-list
             self.defaults.set(self.itemArray, forKey: "TodoListArray")
