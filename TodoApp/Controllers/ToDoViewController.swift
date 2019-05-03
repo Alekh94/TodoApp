@@ -19,7 +19,7 @@ class ToDoViewController: UITableViewController {
       
         
         let newItem = Item()
-        newItem.title = "Städa"
+        newItem.title = "Köpa"
         itemArray.append(newItem)
         
         let newItem2 = Item()
