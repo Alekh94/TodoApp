@@ -12,31 +12,20 @@ class ToDoViewController: UITableViewController {
     
     var itemArray = [Item]()
     
-    let defaults = UserDefaults.standard
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
       
         
-        let newItem = Item()
-        newItem.title = "Köpa"
-        itemArray.append(newItem)
         
-        let newItem2 = Item()
-        newItem2.title = "Gärningar"
-        itemArray.append(newItem2)
-        
-        let newItem3 = Item()
-        newItem3.title = "Uppgifter"
-        itemArray.append(newItem3)
+        print(dataFilePath)
         
         
+        // Vi behöver ladda upp data som sparades sist med hjälp av funktionen som vi skapat
         
-        // Om det finns en array med key "" då items får det värdet och vidare får ItemArray det värdet --> Data sparas även om appen stängs ned! :)
-        
-        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
-            itemArray = items
-        }
+loadItems()
         
         
     }
@@ -76,20 +65,11 @@ class ToDoViewController: UITableViewController {
 //        print(itemArray[indexPath.row])
         
         
-        // om en rad redan har checkmark, vi läggre en if sats för att bort den annars lägger vi till en checkmark för den valda raden
         
-//        if itemArray[indexPath.row].done == false {
-//            itemArray[indexPath.row].done = true
-//        } else {
-//            itemArray[indexPath.row].done = false
-//        }
-        
-        //denna mening ersätter if satsen ovan. Koden sätter done property för den valda raden till den motsatta med hjälp av not operatorn ! 
+        //denna mening ersätter if satsen. Koden sätter done property för den valda raden till den motsatta med hjälp av not operatorn !
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
-        
-        //denna metod gör att alla tableview methods uppdaterar varje gång man väljer en rad
-        tableView.reloadData()
+        saveItems()
         
         // Så att det inte ser ut att en rad är markerad hela tiden
         tableView.deselectRow(at: indexPath, animated: true)
@@ -117,12 +97,9 @@ class ToDoViewController: UITableViewController {
             
             self.itemArray.append(newItem)
             
-            //Sparar data i defaults. Set(value:any, forKey: String) --> sparas ned i en p-list
-            self.defaults.set(self.itemArray, forKey: "TodoListArray")
-            
-            // Uppdaterar tabellenviewen och därmed synliggörs det man skrev in i raden ovan
-            self.tableView.reloadData()
-                }
+            //Spara data i den nyskapade p-list med hjäp av encoder och dataFilePath
+            self.saveItems()
+        }
         
         // En closure --> lägger till en textfield till alert (konstanten som innehåler pop up)
         //placeholder gör att det finns en grå text som försvinner sedan när man trycker på fältet
@@ -135,8 +112,40 @@ class ToDoViewController: UITableViewController {
         //Det här händer när man trycker på knappen
         alert.addAction(action)
         
-        present(alert, animated: true, completion: nil)
+        self.present(alert, animated: true, completion: nil)
     }
+    
+    //MARK - Model Manupulation Methods
+    
+    func saveItems() {
+        
+        let encoder = PropertyListEncoder()
+        
+        do {
+            let data = try encoder.encode(itemArray)
+            try data.write(to: dataFilePath!)
+        } catch {
+            print("Error encoding item array, \(error)")
+        }
+        
+        
+        // Uppdaterar tabellenviewen och därmed synliggörs det man skrev in i raden ovan
+        self.tableView.reloadData()
+        }
+        
+    
+    func loadItems() {
+       if let data = try? Data(contentsOf: dataFilePath!) {
+            let decoder = PropertyListDecoder()
+            do {
+            itemArray = try decoder.decode([Item].self, from: data)
+                
+            } catch {
+                print("Error decoding item array, \(error)")
+            }
+        }
+    }
+    
     
     
 }

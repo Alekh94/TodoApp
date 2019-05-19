@@ -16,8 +16,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 // det här visas när appen laddas, det första man ser. Innan viewDidLoad!
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         
-        print(NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).last! as String)
-        
         return true
     }
     
