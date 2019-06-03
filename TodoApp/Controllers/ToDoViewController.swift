@@ -7,12 +7,20 @@
 //
 
 import UIKit
+import CoreData
 
 class ToDoViewController: UITableViewController {
     
     var itemArray = [Item]()
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    var selectedCategory: Category? {
+        didSet{
+            loadItems()
+        }
+    }
+    
+   
+     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
 
     override func viewDidLoad() {
@@ -20,17 +28,16 @@ class ToDoViewController: UITableViewController {
       
         
         
-        print(dataFilePath)
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
         
         // Vi behöver ladda upp data som sparades sist med hjälp av funktionen som vi skapat
         
-loadItems()
-        
+    loadItems()
         
     }
 
-    // MARK - TableView Datasource Methods
+    // MARK: - TableView Datasource Methods
     
     
     // Denna method säger hur många celler ska va med i tabellen
@@ -57,7 +64,7 @@ loadItems()
     }
 
     
-    //MARK - TableView Delegate Methods
+    //MARK: - TableView Delegate Methods
     
     
     // Vad ska hända när man trycker på respeketive rad?
@@ -65,9 +72,13 @@ loadItems()
 //        print(itemArray[indexPath.row])
         
         
+        // För att ta bort en Item! Ta alltid bort från context innan man tar bort från listan
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+        
         
         //denna mening ersätter if satsen. Koden sätter done property för den valda raden till den motsatta med hjälp av not operatorn !
-        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
         saveItems()
         
@@ -76,7 +87,7 @@ loadItems()
     
     }
     
-    //MARK - ADD new items
+    //MARK: - ADD new items
     //Vi skapade knappen med hjälp av UIBarButton i Main Storyboard.
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         
@@ -91,9 +102,15 @@ loadItems()
             // What will happen once the user click on the add item button on our UIAlert
             
             //Lägga till texten från closure nedan i itemArray som sedan ser till att synliggöra det
+
+            //mha (UIApplication.shared.delegate as! AppDelegate) kan vi kma åt AppDelegate. Här korrigerar vi i staging-area (context)
+            
            
-            let newItem = Item()
+            
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             
             self.itemArray.append(newItem)
             
@@ -115,38 +132,72 @@ loadItems()
         self.present(alert, animated: true, completion: nil)
     }
     
-    //MARK - Model Manupulation Methods
-    
+    //MARK: - Model Manupulation Methods
+    //Här sparar vi contexten
     func saveItems() {
         
-        let encoder = PropertyListEncoder()
-        
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            
+        try context.save()
+         
         } catch {
-            print("Error encoding item array, \(error)")
+            print("Error saving context \(error)")
         }
-        
-        
         // Uppdaterar tabellenviewen och därmed synliggörs det man skrev in i raden ovan
         self.tableView.reloadData()
         }
         
     
-    func loadItems() {
-       if let data = try? Data(contentsOf: dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-            itemArray = try decoder.decode([Item].self, from: data)
-                
-            } catch {
-                print("Error decoding item array, \(error)")
+    //Här laddar vi från databasen. Defaultvärdet är att vi laddar upp "Items" men vi kan även lägga in i en input för att använda denna funktion i sökbaren
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+    
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
+
+        
+        do {
+          itemArray = try context.fetch(request)
+        } catch {
+            print("Error fetching data from context \(error)")
+        }
+        
+        tableView.reloadData()
+    }
+    
+}
+//MARK: - Seach Bar methods
+
+extension ToDoViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+       
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+       request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request, predicate: predicate)
+
+    }
+    
+    //Gå tillbaka till orginal listan
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+
             }
+    
         }
     }
     
-    
-    
 }
-
