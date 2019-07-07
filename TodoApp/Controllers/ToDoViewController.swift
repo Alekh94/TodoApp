@@ -7,20 +7,20 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class ToDoViewController: UITableViewController {
     
-    var itemArray = [Item]()
+    var todoItems: Results<Item>?
     
-    var selectedCategory: Category? {
+    let realm = try! Realm()
+    
+  var selectedCategory: Category? {
         didSet{
             loadItems()
         }
     }
     
-   
-     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
 
     override func viewDidLoad() {
@@ -42,7 +42,7 @@ class ToDoViewController: UITableViewController {
     
     // Denna method säger hur många celler ska va med i tabellen
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return itemArray.count
+        return todoItems?.count ?? 1
     }
     
     // Denna method säger vad som skall stå i cellerna
@@ -50,7 +50,7 @@ class ToDoViewController: UITableViewController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "ItemCell", for: indexPath)
         
-        let item = itemArray[indexPath.row]
+        if let item = todoItems?[indexPath.row] {
         
         cell.textLabel?.text = item.title
         
@@ -58,7 +58,10 @@ class ToDoViewController: UITableViewController {
         // value = condition ? valueIfTrue : valueIfFalse
         //Om Item Done == true då ska checkmark läggas till annars inte
         
-        cell.accessoryType = item.done == true ? .checkmark : .none
+            cell.accessoryType = item.done ? .checkmark : .none
+        } else {
+            cell.textLabel?.text = "No Items Added"
+        }
       
         return cell
     }
@@ -69,20 +72,17 @@ class ToDoViewController: UITableViewController {
     
     // Vad ska hända när man trycker på respeketive rad?
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        print(itemArray[indexPath.row])
+
+        if let item = todoItems?[indexPath.row] {
+            do {
+                try realm.write {
+                    item.done = !item.done
+                }} catch {
+                    print("Error saving done status, \(error)")
+            }
+        }
+        tableView.reloadData()
         
-        
-        // För att ta bort en Item! Ta alltid bort från context innan man tar bort från listan
-//        context.delete(itemArray[indexPath.row])
-//        itemArray.remove(at: indexPath.row)
-        
-        
-        //denna mening ersätter if satsen. Koden sätter done property för den valda raden till den motsatta med hjälp av not operatorn !
-         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
-        
-        saveItems()
-        
-        // Så att det inte ser ut att en rad är markerad hela tiden
         tableView.deselectRow(at: indexPath, animated: true)
     
     }
@@ -99,23 +99,21 @@ class ToDoViewController: UITableViewController {
         
         //Skapar en actionknapp som heter Add Item med hjälp av UIAlertAction
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
-            // What will happen once the user click on the add item button on our UIAlert
             
-            //Lägga till texten från closure nedan i itemArray som sedan ser till att synliggöra det
-
-            //mha (UIApplication.shared.delegate as! AppDelegate) kan vi kma åt AppDelegate. Här korrigerar vi i staging-area (context)
             
-           
-            
-            let newItem = Item(context: self.context)
-            newItem.title = textField.text!
-            newItem.done = false
-            newItem.parentCategory = self.selectedCategory
-            
-            self.itemArray.append(newItem)
-            
-            //Spara data i den nyskapade p-list med hjäp av encoder och dataFilePath
-            self.saveItems()
+            if let currentCategory = self.selectedCategory {
+                do {
+                try self.realm.write {
+                    let newItem = Item()
+                    newItem.title = textField.text!
+                    newItem.dateCreated = Date()
+                    currentCategory.items.append(newItem)
+                }
+                } catch {
+                    print("Error saving new items \(error)")
+                }
+            }
+            self.tableView.reloadData()
         }
         
         // En closure --> lägger till en textfield till alert (konstanten som innehåler pop up)
@@ -133,38 +131,10 @@ class ToDoViewController: UITableViewController {
     }
     
     //MARK: - Model Manupulation Methods
-    //Här sparar vi contexten
-    func saveItems() {
-        
-        do {
-            
-        try context.save()
-         
-        } catch {
-            print("Error saving context \(error)")
-        }
-        // Uppdaterar tabellenviewen och därmed synliggörs det man skrev in i raden ovan
-        self.tableView.reloadData()
-        }
-        
     
-    //Här laddar vi från databasen. Defaultvärdet är att vi laddar upp "Items" men vi kan även lägga in i en input för att använda denna funktion i sökbaren
-    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+    func loadItems() {
         
-        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
-    
-        if let additionalPredicate = predicate {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
-        } else {
-            request.predicate = categoryPredicate
-        }
-
-        
-        do {
-          itemArray = try context.fetch(request)
-        } catch {
-            print("Error fetching data from context \(error)")
-        }
+        todoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
         
         tableView.reloadData()
     }
@@ -173,31 +143,27 @@ class ToDoViewController: UITableViewController {
 //MARK: - Seach Bar methods
 
 extension ToDoViewController: UISearchBarDelegate {
-    
+
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         
-        let request : NSFetchRequest<Item> = Item.fetchRequest()
-       
-        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+    todoItems = todoItems?.filter("title CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "dateCreated", ascending: true)
         
-       request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-        
-        loadItems(with: request, predicate: predicate)
+        tableView.reloadData()
 
     }
-    
+
     //Gå tillbaka till orginal listan
-    
+
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         if searchBar.text?.count == 0 {
             loadItems()
-            
+
             DispatchQueue.main.async {
                 searchBar.resignFirstResponder()
 
             }
-    
+
         }
     }
-    
+
 }
